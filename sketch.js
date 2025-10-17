@@ -11,10 +11,6 @@ function draw(){
     background(220);
     manager.update();
     manager.render();
-
-    textSize(24);
-    textAlign(CENTER, CENTER);
-    text("p5.js 動作中", width / 2, height / 2);
 }
 
 function createDisplay(){ //ゲーム画面を生成
@@ -49,7 +45,7 @@ class GameManager{ //ゲームの状態遷移
         this.renderer = new Renderer();
         this.input = new InputHandler();
 
-        this.state = new MenuState();
+        this.state = new PlayState();
         this.state.enter(this);
     }
 
@@ -74,6 +70,7 @@ class GameState{ //インタフェース
     update(manager){} //毎フレームの処理
     render(manager){} //描画処理
 }
+
 class MenuState extends GameState{}
 class PlayState extends GameState{
     enter(manager){
@@ -86,9 +83,8 @@ class PlayState extends GameState{
         this.game.update();
     }
     render(manager){
-        const {render, game} = manager;
-        this.renderer.drawBoard(game.board);
-        this.renderer.drawPolyomino(game.current);
+        this.renderer.drawBoard(this.game.board);
+        this.renderer.drawPolyomino(this.game.current);
     }
 }
 
@@ -164,8 +160,8 @@ class Polyomino{ //ブロックの基本操作
 }
 
 class Tetromino extends Polyomino{
-    constructor(type, shape){
-        super(type, shape);
+    constructor(type, shape, x, y){
+        super(type, shape, x, y);
     }
 
     cloneMoved(dx, dy){
@@ -294,7 +290,7 @@ class Renderer{
     drawPolyomino(polyomino){ //ブロックを描画
         fill("blue");
         for(const [x, y] of polyomino.getPosition()){
-            Rect(
+            rect(
                 x * this.blockSize,
                 y * this.blockSize,
                 this.blockSize,
