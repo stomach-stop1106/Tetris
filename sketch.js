@@ -1,19 +1,27 @@
 let manager;
-const boardWidth = 16;
-const boardHeight = 22;
 
 function setup(){
     manager = new GameManager();
+    inputHandler = new InputHandler(manager.game);
     createDisplay();
 }
 
 function draw(){
-    background(220);
+    background(255);
     manager.update();
     manager.render();
 }
 
+function keyPressed(){
+    if(inputHandler){
+        inputHandler.handle(key);
+    }
+}
+
 function createDisplay(){ //ゲーム画面を生成
+    const boardWidth = 16;
+    const boardHeight = 22;
+
     let blockSize = floor(min(
         windowWidth / boardWidth,
         windowHeight / boardHeight
@@ -43,7 +51,6 @@ class GameManager{ //ゲームの状態遷移
         this.game = new Game(this.factory, this.board);
 
         this.renderer = new Renderer();
-        this.input = new InputHandler();
 
         this.state = new PlayState();
         this.state.enter(this);
@@ -65,7 +72,7 @@ class GameManager{ //ゲームの状態遷移
     }
 }
 
-class GameState{ //インタフェース
+class GameState{ //Stateパターン
     enter(manager){} //状態に入ったときの処理
     update(manager){} //毎フレームの処理
     render(manager){} //描画処理
@@ -95,6 +102,9 @@ class Game{ //ゲームのロジック
         this.current = this.factory.createRandom(); //今のブロック
         this.next = this.factory.createRandom(); //次のブロック
 
+        this.dropInterval = 1000; //落下間隔
+        this.lastDropTime = millis();
+
         /*
         this.currentBlock = null;
         this.nextBlocks = [];
@@ -110,25 +120,37 @@ class Game{ //ゲームのロジック
     }
 
     update(){
-        if(!this.tryMove(0,1)){
-            this.board.fix(this.current);
-            this.board.clearLines();
-            this.spawnNext();
-            if(!this.board.canSpawn(this.current)){
-                //ゲームオーバー処理未実装
+        if(millis() - this.lastDropTime > this.dropInterval){
+            this.lastDropTime = millis();
+            if(!this.canMove(0, 1)){
+             this.board.fix(this.current);
+                this.board.clearLines();
+                this.spawnNext();
+                if(!this.board.canSpawn(this.current)){ //ゲームオーバー
+                    //ゲームオーバー処理未実装
+                }
+            }else{
+                this.move(0, 1);
             }
         }
 
     }
 
-    tryMove(dx, dy){ //移動できるか判定
+    canMove(dx, dy){ //移動できるか
         const moved = this.current.cloneMoved(dx, dy);
-        if(this.board.canPlace(moved)){
-            this.current = moved;
-            return true;
-        }
-        return false;
+        return this.board.canPlace(moved);
     }
+
+    move(dx, dy){ //移動
+        if(this.canMove(dx, dy)){
+            this.current.move(dx, dy);
+        }
+    }
+
+    //回転は後回し
+    canRotate(){}
+    rotateRight(){}
+    rotateLeft(){}
 
     spawnNext(){ //次のブロックを生成
         this.current = this.next;
@@ -164,6 +186,15 @@ class Tetromino extends Polyomino{
         super(type, shape, x, y);
     }
 
+    clone(){
+        return new Tetromino(
+            this.type,
+            this.shape,
+            this.x,
+            this.y
+        );
+    }
+
     cloneMoved(dx, dy){
         return new Tetromino(
             this.type,
@@ -174,7 +205,7 @@ class Tetromino extends Polyomino{
     }
 }
 
-class Factory{
+class Factory{ //Factoryパターン
     create(type){ //ブロックを生成
         const shape = this.shapes[type];
         if(!shape){
@@ -300,4 +331,77 @@ class Renderer{
     }
 }
 
-class InputHandler{}
+class InputHandler{
+    constructor(game){
+        this.game = game;
+        this.history = []; //スタック
+    }
+
+    handle(keyCode){
+        let command = null;
+
+        switch(keyCode){ //キーごとの操作
+            case "w": break;
+            case "a": command = new MoveLeftCommand(); break;
+            case "s": command = new MoveDownCommand(); break;
+            case "d": command = new MoveRightCommand(); break;
+            //その他処理
+        }
+        if(command){
+            command.execute(this.game);
+            this.history.push(command);
+        }
+    }
+
+    undo(){ //逆操作
+        if(this.history.length > 0){
+            const command = this.history.pop();
+            command.undo(this.game);
+        }
+    }
+}
+
+class Command{ //Commandパターン
+    execute(game){}
+    undo(game){}
+}
+
+class MoveLeftCommand extends Command{
+    execute(game){
+        this.prev = game.current.clone(); //現在の位置を保存
+        if(game.canMove(-1, 0)){
+            game.move(-1, 0);
+        }
+    }
+
+    undo(game){
+        game.current = this.prev;
+    }
+}
+class MoveDownCommand extends Command{
+    execute(game){
+        this.prev = game.current.clone();
+        if(game.canMove(0, 1)){
+            game.move(0, 1);
+        }
+    }
+    
+    undo(game){
+        game.current = this.prev;
+    }
+}
+class MoveRightCommand extends Command{
+    execute(game){
+        this.prev = game.current.clone();
+        if(game.canMove(1, 0)){
+            game.move(1, 0);
+        }
+    }
+    
+    undo(game){
+        game.current = this.prev;
+    }
+}
+class RotateCommand extends Command{
+
+}
