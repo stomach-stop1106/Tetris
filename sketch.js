@@ -1,8 +1,9 @@
 let manager;
+let inputHandler
 
 function setup(){
     manager = new GameManager();
-    inputHandler = new InputHandler(manager.game);
+    inputHandler = new InputHandler(manager);
     createDisplay();
 }
 
@@ -122,29 +123,25 @@ class Game{ //ゲームのロジック
     update(){
         if(millis() - this.lastDropTime > this.dropInterval){
             this.lastDropTime = millis();
-            if(!this.canMove(0, 1)){
-             this.board.fix(this.current);
+            if(!this.move(0, 1)){
+                this.board.fix(this.current);
                 this.board.clearLines();
                 this.spawnNext();
                 if(!this.board.canSpawn(this.current)){ //ゲームオーバー
                     //ゲームオーバー処理未実装
                 }
-            }else{
-                this.move(0, 1);
             }
         }
 
     }
 
-    canMove(dx, dy){ //移動できるか
-        const moved = this.current.cloneMoved(dx, dy);
-        return this.board.canPlace(moved);
-    }
-
     move(dx, dy){ //移動
-        if(this.canMove(dx, dy)){
+        const moved = this.current.cloneMoved(dx, dy);
+        if(this.board.canPlace(moved)){ //移動できるか
             this.current.move(dx, dy);
+            return true;
         }
+        return false;
     }
 
     //回転は後回し
@@ -179,31 +176,36 @@ class Polyomino{ //ブロックの基本操作
         this.shape = this.shape.map(([x, y]) => [-y, x]);
     }
     //処理が雑すぎる(壁やオブジェクトを貫通する)ので要改善
+
+    clone(){ //コピーを返す
+        const shapeCopy = this.shape.map(([sx, sy]) => [sx, sy]);
+        return new Polyomino(
+            this.type,
+            shapeCopy,
+            this.x,
+            this.y
+        );
+    }
+
+    cloneMoved(dx, dy){ //移動したコピーを返す
+        const shapeCopy = this.shape.map(([sx, sy]) => [sx, sy]);
+        return new Polyomino(
+            this.type,
+            shapeCopy,
+            this.x + dx,
+            this.y + dy
+        );
+    }
 }
 
 class Tetromino extends Polyomino{
     constructor(type, shape, x, y){
         super(type, shape, x, y);
     }
-
-    clone(){
-        return new Tetromino(
-            this.type,
-            this.shape,
-            this.x,
-            this.y
-        );
-    }
-
-    cloneMoved(dx, dy){
-        return new Tetromino(
-            this.type,
-            this.shape,
-            this.x + dx,
-            this.y + dy
-        );
-    }
 }
+
+class Pentomino extends Polyomino{}
+class Hexomino extends Polyomino{}
 
 class Factory{ //Factoryパターン
     create(type){ //ブロックを生成
@@ -241,8 +243,8 @@ class TetrominoFactory extends Factory{
     }
 }
 
-class Pentomino extends Polyomino{}
-class Hexomino extends Polyomino{}
+class PentominoFactory extends Factory{}
+class HexominoFactory extends Factory{}
 
 class Board{
     constructor(width, height){
@@ -306,13 +308,13 @@ class Renderer{
                     fill("gray");
                 }else{
                     fill("white");
-                    rect(
-                        j * this.blockSize,
-                        i * this.blockSize,
-                        this.blockSize,
-                        this.blockSize,
-                    );
                 }
+                rect(
+                    j * this.blockSize,
+                    i * this.blockSize,
+                    this.blockSize,
+                    this.blockSize,
+                );
             }
         }
     }
@@ -320,6 +322,8 @@ class Renderer{
 
     drawPolyomino(polyomino){ //ブロックを描画
         fill("blue");
+        stroke(0);
+        strokeWeight(1);
         for(const [x, y] of polyomino.getPosition()){
             rect(
                 x * this.blockSize,
@@ -332,76 +336,20 @@ class Renderer{
 }
 
 class InputHandler{
-    constructor(game){
-        this.game = game;
-        this.history = []; //スタック
+    constructor(manager){
+        this.manager = manager;
     }
 
-    handle(keyCode){
-        let command = null;
+    handle(key){
+        const game = this.manager.game;
 
-        switch(keyCode){ //キーごとの操作
-            case "w": break;
-            case "a": command = new MoveLeftCommand(); break;
-            case "s": command = new MoveDownCommand(); break;
-            case "d": command = new MoveRightCommand(); break;
-            //その他処理
-        }
-        if(command){
-            command.execute(this.game);
-            this.history.push(command);
+        switch(key){ //キーごとの操作
+            case "w": while(game.move(0, 1)){} break;
+            case "a": game.move(-1, 0); break;
+            case "s": game.move(0, 1); break;
+            case "d": game.move(1, 0); break;
+            case "e": break;
+            case "q": break;
         }
     }
-
-    undo(){ //逆操作
-        if(this.history.length > 0){
-            const command = this.history.pop();
-            command.undo(this.game);
-        }
-    }
-}
-
-class Command{ //Commandパターン
-    execute(game){}
-    undo(game){}
-}
-
-class MoveLeftCommand extends Command{
-    execute(game){
-        this.prev = game.current.clone(); //現在の位置を保存
-        if(game.canMove(-1, 0)){
-            game.move(-1, 0);
-        }
-    }
-
-    undo(game){
-        game.current = this.prev;
-    }
-}
-class MoveDownCommand extends Command{
-    execute(game){
-        this.prev = game.current.clone();
-        if(game.canMove(0, 1)){
-            game.move(0, 1);
-        }
-    }
-    
-    undo(game){
-        game.current = this.prev;
-    }
-}
-class MoveRightCommand extends Command{
-    execute(game){
-        this.prev = game.current.clone();
-        if(game.canMove(1, 0)){
-            game.move(1, 0);
-        }
-    }
-    
-    undo(game){
-        game.current = this.prev;
-    }
-}
-class RotateCommand extends Command{
-
 }
