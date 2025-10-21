@@ -96,6 +96,8 @@ class PlayState extends GameState{
     }
 }
 
+class GameOverState extends GameState{}
+
 class Game{ //ゲームのロジック
     constructor(factory, board){
         this.factory = factory;
@@ -105,19 +107,6 @@ class Game{ //ゲームのロジック
 
         this.dropInterval = 1000; //落下間隔
         this.lastDropTime = millis();
-
-        /*
-        this.currentBlock = null;
-        this.nextBlocks = [];
-        this.holdBlock = null;
-        this.canHold = true;
-
-        this.score = 0;
-        this.level = 1;
-        this.linesCleared = 0;
-        this.isGameOver = false;
-        */
-        //機能追加したら必要になるかも
     }
 
     update(){
@@ -137,17 +126,26 @@ class Game{ //ゲームのロジック
 
     move(dx, dy){ //移動
         const moved = this.current.cloneMoved(dx, dy);
-        if(this.board.canPlace(moved)){ //移動できるか
-            this.current.move(dx, dy);
+        if(this.board.canPlace(moved)){
+            this.current = moved;
             return true;
         }
         return false;
     }
 
-    //回転は後回し
-    canRotate(){}
-    rotateRight(){}
-    rotateLeft(){}
+    rotateRight(){ //右回転
+        const rotated = this.current.cloneRotatedRight();
+        if(this.board.canPlace(rotated)){
+            this.current = rotated;
+        }
+    }
+
+    rotateLeft(){ //左回転
+        const rotated = this.current.cloneRotatedLeft();
+        if(this.board.canPlace(rotated)){
+            this.current = rotated;
+        }
+    }
 
     spawnNext(){ //次のブロックを生成
         this.current = this.next;
@@ -156,32 +154,24 @@ class Game{ //ゲームのロジック
 }
 
 class Polyomino{ //ブロックの基本操作
-    constructor(type, shape, x = 4, y = 0){
+    constructor(type, shape, color, x = 4, y = 0){
         this.type = type; //ブロックの種類
         this.shape = shape; //ブロックの形
+        this.color = color; //ブロックの色
         this.x = x; //初期座標
         this.y = y;
     }
 
-    getPosition(){ //形情報から座標を取得
+    getPosition(){ //形から座標を取得
         return this.shape.map(([sx, sy]) => [this.x + sx, this.y + sy]);
     }
 
-    move(dx, dy){ //移動
-        this.x += dx;
-        this.y += dy;
-    }
-
-    rotateRight(){ //右回転
-        this.shape = this.shape.map(([x, y]) => [-y, x]);
-    }
-    //処理が雑すぎる(壁やオブジェクトを貫通する)ので要改善
-
     clone(){ //コピーを返す
         const shapeCopy = this.shape.map(([sx, sy]) => [sx, sy]);
-        return new Polyomino(
+        return new this.constructor(
             this.type,
             shapeCopy,
+            this.color,
             this.x,
             this.y
         );
@@ -189,18 +179,40 @@ class Polyomino{ //ブロックの基本操作
 
     cloneMoved(dx, dy){ //移動したコピーを返す
         const shapeCopy = this.shape.map(([sx, sy]) => [sx, sy]);
-        return new Polyomino(
+        return new this.constructor(
             this.type,
             shapeCopy,
+            this.color,
             this.x + dx,
             this.y + dy
+        );
+    }
+
+    cloneRotatedRight(){ //右回転したコピーを返す
+        const shapeCopy = this.shape.map(([x, y]) => [-y, x]);
+        return new this.constructor(
+            this.type,
+            shapeCopy,
+            this.color,
+            this.x,
+            this.y
+        );
+    }
+    cloneRotatedLeft(){ //左回転したコピーを返す
+        const shapeCopy = this.shape.map(([x, y]) => [y, -x]);
+        return new this.constructor(
+            this.type,
+            shapeCopy,
+            this.color,
+            this.x,
+            this.y
         );
     }
 }
 
 class Tetromino extends Polyomino{
-    constructor(type, shape, x, y){
-        super(type, shape, x, y);
+    constructor(type, shape, color, x, y){
+        super(type, shape, color, x, y);
     }
 }
 
@@ -210,22 +222,16 @@ class Hexomino extends Polyomino{}
 class Factory{ //Factoryパターン
     create(type){ //ブロックを生成
         const shape = this.shapes[type];
-        if(!shape){
-            throw new Error("形が存在しません");
-        }
-        // const color = this.getColor(type);
-        return new this.Product(type, shape);
+        const color = this.colors[type];
+        return new this.Product(type, shape, color);
     }
-    //ブロックの色未実装
 
     createRandom(){ //ランダムにブロックを生成
         const types = Object.keys(this.shapes);
         const type = types[Math.floor(Math.random() * types.length)];
         return this.create(type);
     }
-    //7回に1回各ブロックが生成未実装
 }
-//生成ルールは新しくクラスを作ることで追加する(Stratagyパターン)
 
 class TetrominoFactory extends Factory{
     constructor(){
@@ -239,6 +245,15 @@ class TetrominoFactory extends Factory{
             Z: [[0, 0], [1, 0], [1, 1], [2, 1]],
             J: [[0, 0], [0, 1], [1, 1], [2, 1]],
             L: [[2, 0], [0, 1], [1, 1], [2, 1]]
+        };
+        this.colors = { //キーと形
+            I: "cyan",
+            O: "yellow",
+            T: "purple",
+            S: "green",
+            Z: "red",
+            J: "blue",
+            L: "orange"
         };
     }
 }
@@ -265,7 +280,10 @@ class Board{
                 x >= 0 && x < this.width &&
                 y >= 0 && y < this.height
             ){
-                this.grid[y][x] = polyomino.type;
+                this.grid[y][x] = {
+                    type: polyomino.type,
+                    color: polyomino.color
+                };
             }
         }
     }
@@ -303,9 +321,9 @@ class Renderer{
 
         for(let i = 0; i < h; i++){
             for(let j = 0; j < w; j++){
-                const type = board.grid[i][j];
-                if(type){
-                    fill("gray");
+                const cell = board.grid[i][j];
+                if(cell){
+                    fill(cell.color);
                 }else{
                     fill("white");
                 }
@@ -318,10 +336,9 @@ class Renderer{
             }
         }
     }
-    //毎秒描画なので画像として保存したい
 
     drawPolyomino(polyomino){ //ブロックを描画
-        fill("blue");
+        fill(polyomino.color);
         stroke(0);
         strokeWeight(1);
         for(const [x, y] of polyomino.getPosition()){
@@ -348,8 +365,8 @@ class InputHandler{
             case "a": game.move(-1, 0); break;
             case "s": game.move(0, 1); break;
             case "d": game.move(1, 0); break;
-            case "e": break;
-            case "q": break;
+            case "e": game.rotateRight(); break;
+            case "q": game.rotateLeft(); break;
         }
     }
 }
