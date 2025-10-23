@@ -75,8 +75,8 @@ class GameManager{ //ゲームの状態遷移
 
 class GameState{ //Stateパターン
     enter(manager){} //状態に入ったときの処理
-    update(manager){} //毎フレームの処理
-    render(manager){} //描画処理
+    update(){} //毎フレームの処理
+    render(){} //描画処理
 }
 
 class MenuState extends GameState{}
@@ -87,23 +87,22 @@ class PlayState extends GameState{
         this.renderer = manager.renderer;
     }
 
-    update(manager){
+    update(){
         this.game.update();
     }
-    render(manager){
+    render(){
         this.renderer.drawBoard(this.game.board);
         this.renderer.drawPolyomino(this.game.current);
     }
 }
-
 class GameOverState extends GameState{}
 
 class Game{ //ゲームのロジック
     constructor(factory, board){
         this.factory = factory;
         this.board = board;
-        this.current = this.factory.createRandom(); //今のブロック
-        this.next = this.factory.createRandom(); //次のブロック
+        this.current = this.factory.createSevenBag(); //今のブロック
+        this.next = this.factory.createSevenBag(); //次のブロック
 
         this.dropInterval = 1000; //落下間隔
         this.lastDropTime = millis();
@@ -149,7 +148,7 @@ class Game{ //ゲームのロジック
 
     spawnNext(){ //次のブロックを生成
         this.current = this.next;
-        this.next = this.factory.createRandom();
+        this.next = this.factory.createSevenBag();
     }
 }
 
@@ -220,6 +219,11 @@ class Pentomino extends Polyomino{}
 class Hexomino extends Polyomino{}
 
 class Factory{ //Factoryパターン
+    constructor(){
+        this.bag = [];
+    }
+
+    //生成ルールが増えたらStrategyパターンを適用
     create(type){ //ブロックを生成
         const shape = this.shapes[type];
         const color = this.colors[type];
@@ -229,6 +233,19 @@ class Factory{ //Factoryパターン
     createRandom(){ //ランダムにブロックを生成
         const types = Object.keys(this.shapes);
         const type = types[Math.floor(Math.random() * types.length)];
+        return this.create(type);
+    }
+
+    createSevenBag(){ //7-bag方式
+        if(this.bag.length == 0){
+            const types = Object.keys(this.shapes);
+            this.bag = types.slice(); //コピーを生成
+            for(let i = this.bag.length - 1; i > 0; i--){ //シャッフル
+                const j = Math.floor(Math.random() * (i + 1));
+                [this.bag[i], this.bag[j]] = [this.bag[j], this.bag[i]];
+            }
+        }
+        const type = this.bag.pop();
         return this.create(type);
     }
 }
