@@ -1,6 +1,3 @@
-let manager;
-let inputHandler
-
 function setup(){
     manager = new GameManager();
     inputHandler = new InputHandler(manager);
@@ -67,7 +64,7 @@ class GameManager{ //ゲームの状態遷移
     render(){ //描画
         this.state.render(this);
     }
-    setState(newState){ //状態遷移
+    changeState(newState){ //状態遷移
         this.state = newState;
         this.state.enter(this);
     }
@@ -90,6 +87,7 @@ class PlayState extends GameState{
     update(){
         this.game.update();
     }
+
     render(){
         this.renderer.drawBoard(this.game.board);
         this.renderer.drawPolyomino(this.game.current);
@@ -104,6 +102,7 @@ class Game{ //ゲームのロジック
         this.current = this.factory.createSevenBag(); //今のブロック
         this.next = this.factory.createSevenBag(); //次のブロック
 
+        //仮設定
         this.dropInterval = 1000; //落下間隔
         this.lastDropTime = millis();
     }
@@ -153,12 +152,14 @@ class Game{ //ゲームのロジック
 }
 
 class Polyomino{ //ブロックの基本操作
-    constructor(type, shape, color, x = 4, y = 0){
+    constructor(type, shape, color, center, x = 4, y = 0){
         this.type = type; //ブロックの種類
         this.shape = shape; //ブロックの形
         this.color = color; //ブロックの色
+        this.center = center; //回転の中心
         this.x = x; //初期座標
         this.y = y;
+
     }
 
     getPosition(){ //形から座標を取得
@@ -166,52 +167,49 @@ class Polyomino{ //ブロックの基本操作
     }
 
     clone(){ //コピーを返す
-        const shapeCopy = this.shape.map(([sx, sy]) => [sx, sy]);
         return new this.constructor(
             this.type,
-            shapeCopy,
+            this.shape.map(([sx, sy]) => [sx, sy]),
             this.color,
+            this.center,
             this.x,
             this.y
         );
     }
 
     cloneMoved(dx, dy){ //移動したコピーを返す
-        const shapeCopy = this.shape.map(([sx, sy]) => [sx, sy]);
-        return new this.constructor(
-            this.type,
-            shapeCopy,
-            this.color,
-            this.x + dx,
-            this.y + dy
-        );
+        const clone = this.clone();
+        clone.x += dx;
+        clone.y += dy;
+        return clone;
     }
 
     cloneRotatedRight(){ //右回転したコピーを返す
-        const shapeCopy = this.shape.map(([x, y]) => [-y, x]);
-        return new this.constructor(
-            this.type,
-            shapeCopy,
-            this.color,
-            this.x,
-            this.y
-        );
+        const clone = this.clone();
+        const [cx, cy] = clone.center;
+        clone.shape = clone.shape.map(([x, y]) => {
+            const dx = x - cx;
+            const dy = y - cy;
+            return [cx - dy, cy + dx];
+        });
+        return clone;
     }
+
     cloneRotatedLeft(){ //左回転したコピーを返す
-        const shapeCopy = this.shape.map(([x, y]) => [y, -x]);
-        return new this.constructor(
-            this.type,
-            shapeCopy,
-            this.color,
-            this.x,
-            this.y
-        );
+        const clone = this.clone();
+        const [cx, cy] = clone.center;
+        clone.shape = clone.shape.map(([x, y]) => {
+            const dx = x - cx;
+            const dy = y - cy;
+            return [cx + dy, cy - dx];
+        });
+        return clone;
     }
 }
 
 class Tetromino extends Polyomino{
-    constructor(type, shape, color, x, y){
-        super(type, shape, color, x, y);
+    constructor(type, shape, color, center, x, y){
+        super(type, shape, color, center, x, y);
     }
 }
 
@@ -225,9 +223,9 @@ class Factory{ //Factoryパターン
 
     //生成ルールが増えたらStrategyパターンを適用
     create(type){ //ブロックを生成
-        const shape = this.shapes[type];
+        const {shape, center} = this.shapes[type];
         const color = this.colors[type];
-        return new this.Product(type, shape, color);
+        return new this.Product(type, shape, color, center);
     }
 
     createRandom(){ //ランダムにブロックを生成
@@ -250,20 +248,20 @@ class Factory{ //Factoryパターン
     }
 }
 
-class TetrominoFactory extends Factory{
+class TetrominoFactory extends Factory{ //ブロックのデータ
     constructor(){
         super();
         this.Product = Tetromino;
-        this.shapes = { //キーと形情報
-            I: [[0, 0], [1, 0], [2, 0], [3, 0]],
-            O: [[0, 0], [1, 0], [0, 1], [1, 1]],
-            T: [[1, 0], [0, 1], [1, 1], [2, 1]],
-            S: [[1, 0], [2, 0], [0, 1], [1, 1]],
-            Z: [[0, 0], [1, 0], [1, 1], [2, 1]],
-            J: [[0, 0], [0, 1], [1, 1], [2, 1]],
-            L: [[2, 0], [0, 1], [1, 1], [2, 1]]
+        this.shapes = { //形と中心
+            I: { shape: [[0,0],[1,0],[2,0],[3,0]], center: [1.5,0.5] },
+            O: { shape: [[0,0],[1,0],[0,1],[1,1]], center: [0.5,0.5] },
+            T: { shape: [[1,0],[0,1],[1,1],[2,1]], center: [1,1] },
+            S: { shape: [[1,0],[2,0],[0,1],[1,1]], center: [1,1] },
+            Z: { shape: [[0,0],[1,0],[1,1],[2,1]], center: [1,1] },
+            J: { shape: [[0,0],[0,1],[1,1],[2,1]], center: [1,1] },
+            L: { shape: [[2,0],[0,1],[1,1],[2,1]], center: [1,1] }
         };
-        this.colors = { //キーと形
+        this.colors = { //色
             I: "cyan",
             O: "yellow",
             T: "purple",
@@ -387,3 +385,11 @@ class InputHandler{
         }
     }
 }
+
+/*
+未実装一覧
+SRS
+ブロック保持
+次のブロック表示
+キー長押し操作
+*/
