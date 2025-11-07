@@ -50,9 +50,7 @@ class GameManager{ //ゲームの状態遷移
         this.factory = new TetrominoFactory();
         this.board = new Board(10,20)
         this.game = new Game(this.factory, this.board);
-
         this.renderer = new Renderer();
-
         this.state = new PlayState();
         this.state.enter(this);
     }
@@ -104,13 +102,14 @@ class Game{ //ゲームのロジック
         this.board = board;
         this.current = this.factory.createSevenBag(); //今のブロック
         this.next = this.factory.createSevenBag(); //次のブロック
+        this.hold = null; //ホールドのブロック
 
         //仮設定
         this.dropInterval = 1000; //落下間隔
         this.lastDropTime = millis();
     }
 
-    update(){ //もう少し責任分割してもいいかも
+    update(){ //処理未完成
         if(millis() - this.lastDropTime > this.dropInterval){
             this.lastDropTime = millis();
             if(!this.move(0, 1)){
@@ -118,11 +117,10 @@ class Game{ //ゲームのロジック
                 this.board.clearLines();
                 this.spawnNext();
                 if(!this.board.canSpawn(this.current)){ //ゲームオーバー
-                    //ゲームオーバー処理未実装
+                    this.state = new GameOverState();
                 }
             }
         }
-
     }
 
     move(dx, dy){ //移動
@@ -210,7 +208,7 @@ class Polyomino{ //ブロックの基本操作
     }
 }
 
-class Tetromino extends Polyomino{
+class Tetromino extends Polyomino{ //ここにSRSを実装
     constructor(type, shape, color, center, x, y){
         super(type, shape, color, center, x, y);
     }
@@ -328,7 +326,7 @@ class Board{
     }
 }
 
-class Renderer{
+class Renderer{ //描画処理
     setBlockSize(blockSize){
         this.blockSize = blockSize;
     }
@@ -381,7 +379,7 @@ class InputHandler{
         this.SDI = 50; //落下移動の間隔
     }
 
-    update(){
+    update(){ //ブロックの連続移動処理
         const now = millis();
 
         ["a", "d"].forEach(k => {
@@ -399,7 +397,7 @@ class InputHandler{
 
         const sd = this.pressed["s"];
         if(sd && now - sd.lastAct >= this.SDI) {
-            this.game.move(0, 1);
+            this.handle("s");
             sd.lastAct = now;
         }
     }
@@ -415,10 +413,10 @@ class InputHandler{
         }
     }
 
-    onKeyDown(key){
+    onKeyDown(key){ //キーの入力処理
         key = key.toLowerCase();
 
-        if(!this.pressed[key]){
+        if(!this.pressed[key]){ //キー情報の初期化
             this.pressed[key] = {
                 timePressed: millis(),
                 lastAct: 0,
@@ -436,3 +434,7 @@ class InputHandler{
         delete this.pressed[key];
     }
 }
+
+//SRS
+//ブロック保持
+//次のブロック表示
