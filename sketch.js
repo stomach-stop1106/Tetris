@@ -1,6 +1,6 @@
 function setup(){
     manager = new GameManager();
-    inputHandler = new InputHandler(manager);
+    handler = new InputHandler(manager);
     createDisplay();
 }
 
@@ -8,12 +8,15 @@ function draw(){
     background(255);
     manager.update();
     manager.render();
+    handler.update();
 }
 
 function keyPressed(){
-    if(inputHandler){
-        inputHandler.handle(key);
-    }
+    handler.onKeyDown(key);
+}
+
+function keyReleased(){
+    handler.onKeyUp(key);
 }
 
 function createDisplay(){ //ゲーム画面を生成
@@ -107,7 +110,7 @@ class Game{ //ゲームのロジック
         this.lastDropTime = millis();
     }
 
-    update(){
+    update(){ //もう少し責任分割してもいいかも
         if(millis() - this.lastDropTime > this.dropInterval){
             this.lastDropTime = millis();
             if(!this.move(0, 1)){
@@ -124,8 +127,8 @@ class Game{ //ゲームのロジック
 
     move(dx, dy){ //移動
         const moved = this.current.cloneMoved(dx, dy);
-        if(this.board.canPlace(moved)){
-            this.current = moved;
+        if(this.board.canPlace(moved)){ //動けるなら
+            this.current = moved; //動いたデータで上書き
             return true;
         }
         return false;
@@ -245,7 +248,7 @@ class Factory{ //Factoryパターン
         }
         const type = this.bag.pop();
         return this.create(type);
-    }
+    } //シャッフルはメソッドとして分割するかも
 }
 
 class TetrominoFactory extends Factory{ //ブロックのデータ
@@ -370,26 +373,66 @@ class Renderer{
 class InputHandler{
     constructor(manager){
         this.manager = manager;
+        this.game = manager.game;
+
+        this.pressed = {}; //キーの状態
+        this.DAS = 150; //連続移動の遅延
+        this.ARR = 30; //連続移動の間隔
+        this.SDI = 50; //落下移動の間隔
+    }
+
+    update(){
+        const now = millis();
+
+        ["a", "d"].forEach(k => {
+            const state = this.pressed[k];
+            if(!state) return;
+
+            const sincePressed = now - state.timePressed;
+            const sinceAct = now - state.lastAct;
+
+            if(sincePressed >= this.DAS && sinceAct >= this.ARR){
+                this.handle(k);
+                state.lastAct = now;
+            }
+        });
+
+        const sd = this.pressed["s"];
+        if(sd && now - sd.lastAct >= this.SDI) {
+            this.game.move(0, 1);
+            sd.lastAct = now;
+        }
     }
 
     handle(key){
-        const game = this.manager.game;
-
         switch(key){ //キーごとの操作
-            case "w": while(game.move(0, 1)){} break;
-            case "a": game.move(-1, 0); break;
-            case "s": game.move(0, 1); break;
-            case "d": game.move(1, 0); break;
-            case "e": game.rotateRight(); break;
-            case "q": game.rotateLeft(); break;
+            case "w": while(this.game.move(0, 1)){} break;
+            case "a": this.game.move(-1, 0); break;
+            case "s": this.game.move(0, 1); break;
+            case "d": this.game.move(1, 0); break;
+            case "e": this.game.rotateRight(); break;
+            case "q": this.game.rotateLeft(); break;
         }
     }
-}
 
-/*
-未実装一覧
-SRS
-ブロック保持
-次のブロック表示
-キー長押し操作
-*/
+    onKeyDown(key){
+        key = key.toLowerCase();
+
+        if(!this.pressed[key]){
+            this.pressed[key] = {
+                timePressed: millis(),
+                lastAct: 0,
+                actOnce: false
+            };
+        }
+
+        this.handle(key);
+        this.pressed[key].lastAct = millis();
+        this.pressed[key].actedOnce = true;
+    }
+
+    onKeyUp(key){ //キー情報の削除
+        key = key.toLowerCase();
+        delete this.pressed[key];
+    }
+}
