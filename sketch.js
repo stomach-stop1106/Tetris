@@ -103,6 +103,7 @@ class Game{ //ゲームのロジック
         this.current = this.factory.createSevenBag(); //今のブロック
         this.next = this.factory.createSevenBag(); //次のブロック
         this.hold = null; //ホールドのブロック
+        this.holdedOnce = false;
 
         //仮設定
         this.dropInterval = 1000; //落下間隔
@@ -149,6 +150,26 @@ class Game{ //ゲームのロジック
     spawnNext(){ //次のブロックを生成
         this.current = this.next;
         this.next = this.factory.createSevenBag();
+        this.holdedOnce = false;
+    }
+
+    holdBlock(){ //ブロックをホールドする
+        if(!this.holdedOnce){
+            if(this.hold == null){
+                this.hold = this.current;
+                this.spawnNext();
+            }else{
+                const tmp = this.hold;
+                this.hold = this.current;
+                this.current = tmp;
+            }
+            this.resetBlock(hold);
+            this.holdedOnce = true;
+        }
+    }
+
+    resetBlock(){ //ブロックの状態をリセットする
+
     }
 }
 
@@ -410,6 +431,7 @@ class InputHandler{
             case "d": this.game.move(1, 0); break;
             case "e": this.game.rotateRight(); break;
             case "q": this.game.rotateLeft(); break;
+            case "c": this.game.holdBlock(); break;
         }
     }
 
