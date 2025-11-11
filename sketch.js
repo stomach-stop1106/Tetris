@@ -92,6 +92,7 @@ class PlayState extends GameState{
     render(){
         this.renderer.drawBoard(this.game.board);
         this.renderer.drawPolyomino(this.game.current);
+        this.renderer.drawPolyomino(this.game.ghost, 0.3);
     }
 }
 class GameOverState extends GameState{}
@@ -100,10 +101,13 @@ class Game{ //ゲームのロジック
     constructor(factory, board){
         this.factory = factory;
         this.board = board;
+
         this.current = this.factory.createSevenBag(); //今のブロック
         this.next = this.factory.createSevenBag(); //次のブロック
-        this.hold = null; //ホールドのブロック
-        this.holdedOnce = false;
+        this.hold = null; //ホールド枠
+        this.canHold = true; //ホールド可能か
+        this.ghost; //ブロックの影
+        this.updateGhost();
 
         //仮設定
         this.dropInterval = 1000; //落下間隔
@@ -150,26 +154,33 @@ class Game{ //ゲームのロジック
     spawnNext(){ //次のブロックを生成
         this.current = this.next;
         this.next = this.factory.createSevenBag();
-        this.holdedOnce = false;
+        this.canHold = true;
+        this.updateGhost();
     }
 
-    holdBlock(){ //ブロックをホールドする
-        if(!this.holdedOnce){
-            if(this.hold == null){
-                this.hold = this.current;
-                this.spawnNext();
-            }else{
+    swapHold(){ //ホールド枠のブロックと交換
+        if(this.canHold){
+            if(this.hold != null){
                 const tmp = this.hold;
                 this.hold = this.current;
                 this.current = tmp;
+            }else{
+                this.hold = this.current;
+                this.spawnNext();
             }
-            this.resetBlock(hold);
-            this.holdedOnce = true;
+            
+            this.current.x = 4;
+            this.current.y = 0;
+            this.canHold = false;
         }
     }
 
-    resetBlock(){ //ブロックの状態をリセットする
-
+    updateGhost(){ //ブロックの影を更新
+        let clone = this.current.clone();
+        while(this.board.canPlace(clone.cloneMoved(0, 1))){
+            clone = clone.cloneMoved(0, 1);
+        }
+        this.ghost = clone;
     }
 }
 
@@ -270,7 +281,7 @@ class Factory{ //Factoryパターン
     } //シャッフルはメソッドとして分割するかも
 }
 
-class TetrominoFactory extends Factory{ //ブロックのデータ
+class TetrominoFactory extends Factory{ //テトリミノのデータ
     constructor(){
         super();
         this.Product = Tetromino;
@@ -374,10 +385,13 @@ class Renderer{ //描画処理
         }
     }
 
-    drawPolyomino(polyomino){ //ブロックを描画
+    drawPolyomino(polyomino, alpha = 1.0){ //ブロックを描画
+        drawingContext.globalAlpha = alpha; //透明度
+
         fill(polyomino.color);
         stroke(0);
         strokeWeight(1);
+
         for(const [x, y] of polyomino.getPosition()){
             rect(
                 x * this.blockSize,
@@ -386,10 +400,12 @@ class Renderer{ //描画処理
                 this.blockSize
             );
         }
+
+        drawingContext.globalAlpha = 1.0; //デフォルトに戻す
     }
 }
 
-class InputHandler{
+class InputHandler{ //入力処理
     constructor(manager){
         this.manager = manager;
         this.game = manager.game;
@@ -423,7 +439,7 @@ class InputHandler{
         }
     }
 
-    handle(key){
+    handle(key){ //Commandパターンを使えばリプレイ機能を作れる
         switch(key){ //キーごとの操作
             case "w": while(this.game.move(0, 1)){} break;
             case "a": this.game.move(-1, 0); break;
@@ -431,8 +447,9 @@ class InputHandler{
             case "d": this.game.move(1, 0); break;
             case "e": this.game.rotateRight(); break;
             case "q": this.game.rotateLeft(); break;
-            case "c": this.game.holdBlock(); break;
+            case "c": this.game.swapHold(); break;
         }
+        this.game.updateGhost();
     }
 
     onKeyDown(key){ //キーの入力処理
@@ -442,13 +459,11 @@ class InputHandler{
             this.pressed[key] = {
                 timePressed: millis(),
                 lastAct: 0,
-                actOnce: false
             };
         }
 
         this.handle(key);
         this.pressed[key].lastAct = millis();
-        this.pressed[key].actedOnce = true;
     }
 
     onKeyUp(key){ //キー情報の削除
@@ -456,7 +471,3 @@ class InputHandler{
         delete this.pressed[key];
     }
 }
-
-//SRS
-//ブロック保持
-//次のブロック表示
