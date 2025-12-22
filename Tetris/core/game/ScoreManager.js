@@ -1,79 +1,49 @@
 class ScoreManager {
-    constructor() {
-        this.score = 0;
-        this.level = 1;
-        this.combo = -1;
-        this.b2b = false;
-        this.totalLines = 0;
+    constructor(setting){
+        this._score = 0; //スコア
+        this.level = setting.level; //レベル
+        this._dropInterval = 1000 - (this.level - 1) * 100; //落下間隔
+        this.maxLevel = 10; //最大レベル
+        this.combo = -1; //コンボ数
+        this.totalLines = 0; //合計消去ライン数
+        this.linesPerLevel = 10; //レベルアップに必用なライン数
 
         //イベント購読
         eventBus.on("piece-locked", (data) => {
             this.onPieceLocked(data);
         });
         eventBus.on("hard-drop", ({dist}) => {
-            this.score += dist * 2;
+            this._score += dist * 2;
         });
     }
 
-    /*
-    onPieceLocked({lines, tspin, mini}){
+    onPieceLocked({ lines }){
         this.combo = (lines > 0) ? this.combo + 1 : -1; //コンボ継続判定
-        let base = this.calcLineScore(lines, tspin, mini);
-
-        if(tspin || lines == 4){ //B2B
-            if(this.b2b) base *= 1.5;
-            this.b2b = true;
-        }else{
-            this.b2b = false;
-        }
+        let base = this.calcLineScore(lines);
 
         if(this.combo > 0){ //コンボ
             base += 50 * this.combo * this.level;
         }
-        this.score += base * this.level;
-        this.updateLevel(lines);
-    }
-    */
 
-    onPieceLocked({lines}){
-        this.combo = (lines > 0) ? this.combo + 1 : -1; //コンボ継続判定
-        this.tspin = null;
-        this.mini = null;
-        let base = this.calcLineScore(lines, tspin, mini);
-
-        if(lines == 4){ //B2B
-            if(this.b2b) base *= 1.5;
-            this.b2b = true;
-        }else{
-            this.b2b = false;
-        }
-
-        if(this.combo > 0){ //コンボ
-            base += 50 * this.combo * this.level;
-        }
-        this.score += base * this.level;
+        this._score += base * this.level;
         this.updateLevel(lines);
     }
 
-    calcLineScore(lines, tspin, mini){ //スコアを計算
-        if(tspin){
-            if(mini) return [100, 200][lines] || 0;
-            return [400, 800, 1200, 1600][lines] || 0;
-        }else{
-            return [0, 100, 300, 500, 800][lines] || 0;
-        }
-    }
+    calcLineScore(lines){ //スコアを計算
+        return [0, 100, 300, 500, 800][lines] || 0;
+    } //tspinの判定が困難だったため消去ライン数のみで計算
 
     updateLevel(lines){ //レベルアップ判定
         this.totalLines += lines;
-        if(this.totalLines >= 10){
+        if(this.totalLines >= this.linesPerLevel &&
+            this.level < this.maxLevel){
             this.level++;
-            this.totalLines -= 10;
+            this.totalLines -= this.linesPerLevel;
+            this._dropInterval = 1000 - (this.level - 1) * 100;
         }
     }
 
-    getScore(){
-        return this.score;
-    }
+    get score() { return this._score }
+    get dropInterval() { return this._dropInterval }
 }
 

@@ -1,6 +1,8 @@
 class Factory{ //Factoryパターン
+    #strategy;
+
     constructor(strategy){
-        this.strategy = strategy;
+        this.#strategy = strategy;
     }
 
     create(type){ //ブロックを生成
@@ -10,7 +12,9 @@ class Factory{ //Factoryパターン
     }
 
     createNext(){
-        const type = this.strategy.nextType(this.shapes);
+        const type = this.#strategy.nextType(this.shapes);
         return this.create(type);
     }
+
+    set strategy(newValue) { this.#strategy = newValue }
 }

@@ -9,16 +9,14 @@ class Game{ //ゲームの制御
             () => this.lock.resetLockDelay()
         );
         this.effect = new EffectManager(board);
+        this._score = new ScoreManager(setting);
 
         this.setting = setting;
-
-        //落下設定
-        this.dropInterval = this.setting.dropInterval; //落下間隔
         this.lastDropTime = millis(); //落下記録
     }
 
     update(){ //ゲームの更新
-        if(millis() - this.lastDropTime > this.dropInterval){
+        if(millis() - this.lastDropTime > this._score.dropInterval){
             this.lastDropTime = millis();
             if(!this.mover.move(0, 1)){
                 this.lock.startLockDelay();
@@ -42,4 +40,6 @@ class Game{ //ゲームの制御
 
     select(key) { return this.effect.select(key) }
     detonate() { return this.effect.detonate(this.setting.blockSize) }
+
+    get score() { return this._score.score }
 }
