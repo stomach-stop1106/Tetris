@@ -30,7 +30,7 @@ class ScoreManager {
     }
 
     calcLineScore(lines){ //スコアを計算
-        return [0, 100, 300, 500, 800][lines] || 0;
+        return [0, 100, 300, 500, 800, 1200][lines] || 0;
     } //tspinの判定が困難だったため消去ライン数のみで計算
 
     updateLevel(lines){ //レベルアップ判定
