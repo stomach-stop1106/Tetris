@@ -1,7 +1,10 @@
 class Game{ //ゲームの制御
-    constructor(setting, factory, board){
+    constructor(setting, board){
         //関連クラスの初期化
-        this.poly = new PolyManager(factory, board);
+        this.strategy = new SevenBagStrategy();
+        this.factory = new TetrominoFactory(this.strategy);
+        
+        this.poly = new PolyManager(this.factory, board);
         this.lock = new LockManager(board, this.poly);
         this.mover = new MoveManager(
             board,
@@ -35,6 +38,7 @@ class Game{ //ゲームの制御
     updateGhost() { return this.poly.updateGhost() }
     get current() { return this.poly.current }
     get ghost() { return this.poly.ghost }
+    //set factory(newValue) { this.poly.factory = newValue } 
 
     lockPiece() { return this.lock.lockPiece() }
 

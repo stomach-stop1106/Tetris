@@ -8,6 +8,8 @@ class ScoreManager {
         this.totalLines = 0; //合計消去ライン数
         this.linesPerLevel = 10; //レベルアップに必用なライン数
 
+        this.setting = setting;
+
         //イベント購読
         eventBus.on("piece-locked", (data) => {
             this.onPieceLocked(data);
@@ -26,7 +28,7 @@ class ScoreManager {
         }
 
         this._score += base * this.level;
-        this.updateLevel(lines);
+        if(this.setting.canLevelUp) this.updateLevel(lines);
     }
 
     calcLineScore(lines){ //スコアを計算

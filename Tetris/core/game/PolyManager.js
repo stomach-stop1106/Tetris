@@ -1,10 +1,10 @@
 class PolyManager{ //ブロックの出現制御
     constructor(factory, board){
-        this.factory = factory;
+        this._factory = factory;
         this.board = board;
 
-        this.current = this.factory.createNext(); //今のブロック
-        this.next = this.factory.createNext(); //次のブロック
+        this.current = this._factory.createNext(); //今のブロック
+        this.next = this._factory.createNext(); //次のブロック
         this.hold = null; //ホールド枠
         this.canHold = true; //ホールド可能か
         this.ghost; //ブロックの影
@@ -13,7 +13,7 @@ class PolyManager{ //ブロックの出現制御
 
     spawnNext(){ //次のブロックを生成
         this.current = this.next;
-        this.next = this.factory.createNext();
+        this.next = this._factory.createNext();
         this.canHold = true;
         this.updateGhost();
         this.lockTimer = 0;
@@ -44,4 +44,6 @@ class PolyManager{ //ブロックの出現制御
         }
         this.ghost = clone;
     }
+
+    set factory(newValue) { this._factory = newValue } 
 }
