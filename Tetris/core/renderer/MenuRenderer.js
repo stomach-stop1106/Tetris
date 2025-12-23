@@ -1,0 +1,3 @@
+class MenuRenderer {
+    constructor(){}
+}
